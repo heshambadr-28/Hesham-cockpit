@@ -317,11 +317,13 @@ footer{text-align:center;margin-top:32px;font-size:11px;color:var(--muted);}
 </header>
 
 <div class="drop" id="drop">
-  <div><b>Drop MASTER_Hesham_Workbook.xlsx here, or tap to browse</b></div>
+  <div><b>Tap the button below to open your Excel file</b></div>
   <div><small>SheetJS parses it locally in your browser — nothing is uploaded anywhere</small></div>
-  <input type="file" id="file" accept=".xlsx" style="display:none"/>
-  <div style="margin-top:12px;">
-    <button onclick="document.getElementById('file').click();event.stopPropagation();" style="background:#C9A961;color:#1E2761;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">📂 Tap to Open Excel File</button>
+  <div style="margin-top:14px;">
+    <label style="display:inline-block;background:#C9A961;color:#1E2761;border-radius:10px;padding:14px 32px;font-size:16px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;">
+      📂 Tap to Open Excel File
+      <input type="file" id="file" accept=".xlsx" style="display:none" onchange="if(this.files[0])loadWorkbook(this.files[0])"/>
+    </label>
   </div>
 </div>
 
@@ -639,12 +641,15 @@ function lsGet(k){try{ const r=localStorage.getItem(k); return r?JSON.parse(r):n
 /* ════════════════════════════════════════════════════════════
    FILE LOAD / DRAG-DROP
    ════════════════════════════════════════════════════════════ */
-const drop=document.getElementById('drop'), fileIn=document.getElementById('file');
-drop.addEventListener('click',()=>fileIn.click());
-['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
-['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
-drop.addEventListener('drop',ev=>{ev.preventDefault();if(ev.dataTransfer.files[0])loadWorkbook(ev.dataTransfer.files[0]);});
-fileIn.addEventListener('change',ev=>{if(ev.target.files[0])loadWorkbook(ev.target.files[0]);});
+const drop=document.getElementById('drop');
+const fileIn=document.getElementById('file');
+// Desktop: keep drag-drop working
+if(drop){
+  ['dragenter','dragover'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',ev=>{ev.preventDefault();if(ev.dataTransfer&&ev.dataTransfer.files[0])loadWorkbook(ev.dataTransfer.files[0]);});
+}
+// fileIn onchange is inline for iPad Safari compatibility
 
 function loadWorkbook(f){
   const reader=new FileReader();
@@ -652,14 +657,17 @@ function loadWorkbook(f){
     try{
       WB=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
       DATA=parseWorkbook(WB);
-      drop.classList.add('loaded');
-      document.getElementById('file-badge').textContent='Loaded: '+f.name;
-      document.getElementById('empty').classList.add('hide');
-      document.getElementById('app').style.display='block';
+      const dropEl=document.getElementById('drop');
+      if(dropEl) dropEl.classList.add('loaded');
+      const badgeEl=document.getElementById('file-badge');
+      if(badgeEl) badgeEl.textContent='✅ Loaded: '+f.name;
+      const emptyEl=document.getElementById('empty');
+      if(emptyEl) emptyEl.classList.add('hide');
+      const appEl=document.getElementById('app');
+      if(appEl) appEl.style.display='block';
       renderAll();
       setTimeout(()=>{
         if(typeof agentInit==='function') agentInit();
-        // Always update news placeholder after load
         const wrap=document.getElementById('news-feed-wrap');
         if(wrap) wrap.innerHTML=`<div style="background:#F0FFF4;border:1px solid #1B7F4A;border-radius:10px;padding:12px 16px;font-size:13px;color:#0D5C35;font-weight:700;">
           ✅ ${DATA.positions.length} positions loaded · Select scope and click <b>▶ Run Feed</b>
@@ -667,6 +675,7 @@ function loadWorkbook(f){
       },400);
     }catch(err){ console.error(err); alert('Could not parse workbook: '+err.message); }
   };
+  reader.onerror=()=>alert('Could not read file. Please try again.');
   reader.readAsArrayBuffer(f);
 }
 
